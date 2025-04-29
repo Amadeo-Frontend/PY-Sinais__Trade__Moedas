@@ -20,7 +20,7 @@ RSI_PER, RSI_LOW, RSI_HIGH = 14, 25, 75
 ATR_PER, ATR_MIN = 14, 0.0008
 MIN_EMA_DIST = 0.0005          # 0,05 %
 SESSION_START, SESSION_END = 8, 17    # UTC
-DEBUG = True                          # ← mude para False depois dos testes
+DEBUG = True                            # → coloque False quando terminar de testar
 # ---------------------------------
 
 
@@ -30,11 +30,11 @@ def _series_1d(df: pd.DataFrame, col: str) -> pd.Series:
     return s.iloc[:, 0] if isinstance(s, pd.DataFrame) else s.astype(float)
 
 
-def is_reversal(o: float, h: float, l: float, c: float) -> bool:
+def is_reversal(open_p: float, high_p: float, low_p: float, close_p: float) -> bool:
     """Regra simples: candle com wick grande (martelo/pin)."""
-    body = abs(c - o)
-    wick = h - l
-    return wick > 2 * body
+    body = abs(close_p - open_p)
+    candle_range = high_p - low_p
+    return candle_range > 2 * body
 
 
 def analisar(df: pd.DataFrame, label: str) -> list[str]:
@@ -54,23 +54,21 @@ def analisar(df: pd.DataFrame, label: str) -> list[str]:
     if DEBUG:
         tot = f_sess = f_dist = f_rsi = f_atr = f_rev = 0
 
-    for i in range(len(df) - 2):
+    for i in range(len(df) - 2):        # até a penúltima vela
         if DEBUG:
             tot += 1
 
-        t = df.index[i + 1]
-        hour = t.hour
-        if not SESSION_START <= hour < SESSION_END:
+        t_next = df.index[i + 1]
+        if not SESSION_START <= t_next.hour < SESSION_END:
             if DEBUG:
                 f_sess += 1
             continue
 
         ema_s, ema_l = df['EMA_S'].iat[i], df['EMA_L'].iat[i]
-        rsi = df['RSI'].iat[i]
-        atr = df['ATR'].iat[i]
+        rsi, atr = df['RSI'].iat[i], df['ATR'].iat[i]
         price = close.iat[i]
 
-        if pd.isna(ema_s) or pd.isna(ema_l) or pd.isna(rsi) or pd.isna(atr):
+        if pd.isna([ema_s, ema_l, rsi, atr]).any():
             continue
 
         dist_ok = abs(ema_s - ema_l) >= MIN_EMA_DIST * price
